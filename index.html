@@ -1,0 +1,62 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Mississauga Fire Service Areas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Leaflet CSS (with SRI) -->
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
+
+    <!-- Your custom CSS (put your styles in /css/styles.css) -->
+    <link rel="stylesheet" href="./css/styles.css" />
+
+    <style>
+        /* Minimal fallback styles so the map always shows */
+        html, body, #map {
+            height: 100%;
+            margin: 0;
+        }
+
+        /* Legend container (app.js inserts content) */
+        .legend {
+            background: #fff;
+            padding: 8px;
+            font-size: 13px;
+            line-height: 1.4;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+
+        /* Station number labels added by incidents.js */
+        .stn-label {
+            pointer-events: none; /* let mouse events through to the map */
+            white-space: nowrap;
+            transform: translateY(-8px); /* nudge up a bit from the marker */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Map container -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS (with SRI) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- Optional: true heatmap support (if you switch to L.heatLayer later) -->
+    <!-- <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js" defer></script> -->
+    <!-- Your scripts (ORDER MATTERS) -->
+    <script src="./app.js" defer></script>        <!-- defines map, legend, filter -->
+    <script src="./incidents.js" defer></script>  <!-- adds incidents/points overlays -->
+
+    <noscript>
+        This map requires JavaScript. Please enable JavaScript in your browser.
+    </noscript>
+</body>
+</html>
