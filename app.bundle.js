@@ -551,11 +551,13 @@
         { key: 'bhigh', label: 'Backups – High', url: './data/Service_Areas_Backups_High.json', stationKeys: ['High_Hazard2'] }
     ];
 
-    // Incidents
-    const NAME_SPREAD = 'Incidents Spread';
+    // Incidents (LABELS only changed — directory paths remain the same)
+    const NAME_SPREAD = 'Incidents – Spread';
     const URL_SPREAD = './data/Incidents_Spread.json';
-    const NAME_HEAT = 'Incidents Heat Map';
+
+    const NAME_HEAT = 'Incidents – Heat Map';
     const URL_HEAT = './data/Incidents_Heat_Map.json';
+
     const NAME_POINTS = 'Fire Stations';
     const URL_POINTS = './data/Fire_Stations.json';
 
