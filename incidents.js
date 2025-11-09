@@ -1,6 +1,7 @@
-﻿// incidents.js — GitHub Pages–ready; no custom legend required
+﻿// incidents.js — unified with app.js legend/layers; Pages-safe
 (function () {
     'use strict';
+    console.log('incidents.js loaded ✅', new Date().toISOString());
 
     /* ----------------------- Guards ----------------------- */
     if (!window.L) { console.error('[Incidents] Leaflet missing.'); return; }
@@ -70,7 +71,7 @@
         return JSON.parse(clean);
     }
 
-    // Accepts ESRI JSON (features + spatialReference) or GeoJSON (FeatureCollection)
+    // ESRI JSON (features + spatialReference) or GeoJSON (FeatureCollection)
     function normalizeAny(data) {
         // GeoJSON?
         if (data && data.type === 'FeatureCollection' && Array.isArray(data.features)) {
@@ -156,6 +157,7 @@
         return rgbToHex(lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t));
     }
 
+    // Return { layer, min, max } so loader can hook legend min/max
     function buildHeat_ESRI(features, wkid, name) {
         const vals = features.map(f => Number(ci(f?.attributes || {}, 'Incidents'))).filter(Number.isFinite);
         const min = vals.length ? Math.min(...vals) : 0;
@@ -183,11 +185,10 @@
         `)
             );
         }
-        return L.layerGroup(polys);
+        return { layer: L.layerGroup(polys), min, max };
     }
 
     function buildHeat_GeoJSON(fc, name) {
-        // Derive min/max from properties.Incidents
         const vals = (fc.features || [])
             .map(f => Number(ci(f.properties || {}, 'Incidents')))
             .filter(Number.isFinite);
@@ -195,20 +196,21 @@
         const max = vals.length ? Math.max(...vals) : 1;
         const span = (max - min) || 1;
 
-        return L.geoJSON(fc, {
+        const layer = L.geoJSON(fc, {
             style: f => {
                 const v = Number(ci(f.properties || {}, 'Incidents'));
                 const t = Number.isFinite(v) ? Math.max(0, Math.min(1, (v - min) / span)) : 0;
                 return { color: '#333', weight: 0.4, fillOpacity: 0.55, fillColor: rampColor(t) };
             },
-            onEachFeature: (feat, layer) => {
+            onEachFeature: (feat, l) => {
                 const v = Number(ci(feat.properties || {}, 'Incidents'));
-                layer.bindPopup(`
+                l.bindPopup(`
           <div class="layer-badge">${name}</div>
           <b>Incidents:</b> ${Number.isFinite(v) ? v : '—'}
         `);
             }
         });
+        return { layer, min, max };
     }
 
     // ---------- STATION POINTS ----------
@@ -280,7 +282,6 @@
           <b>Station:</b> ${st ?? '—'}<br>
           <b>Name:</b> ${ci(a, 'LANDMARKNA') ?? '—'}
         `);
-                // label
                 const label = L.marker(latlng, {
                     icon: L.divIcon({
                         className: 'stn-label',
@@ -291,54 +292,61 @@
                 });
                 group.addLayer(marker);
                 group.addLayer(label);
-                return null; // we've added to group ourselves
+                return null; // we manage the layers in group
             }
         });
         return group;
     }
 
     /* ---------------------- Loader ------------------------ */
-    /* ---------------------- Loader ------------------------ */
     (async () => {
         const map = await waitFor(() => window.map);
         const lc = await waitFor(() => window.layerControl);
         const legend = await waitFor(() => window.__legend);
         if (!map || !lc || !legend) {
-            console.error('[Incidents] Missing dependencies (map/layerControl/legend). Ensure app.js loads first.');
+            console.error('[Incidents] Missing dependencies (map/layerControl/legend). Ensure app.js creates them first.');
             return;
         }
 
         // Spread
         try {
             const raw = await fetchJson(URL_SPREAD);
-            const { kind, wkid, features } = normalizeAny(raw);
-            const spread = (kind === 'geojson')
-                ? buildIncidentsSpread_GeoJSON({ type: 'FeatureCollection', features }, NAME_SPREAD)
-                : buildIncidentsSpread_ESRI(features, wkid, NAME_SPREAD);
-            // Hook legend section "spread"
+            const norm = normalizeAny(raw);
+            const spread = (norm.kind === 'geojson')
+                ? buildIncidentsSpread_GeoJSON({ type: 'FeatureCollection', features: norm.features }, NAME_SPREAD)
+                : buildIncidentsSpread_ESRI(norm.features, norm.wkid, NAME_SPREAD);
+
+            // Hook the unified legend keyed section 'spread'
             spread.on('add', () => window.__legend.setSectionVisible('spread', true));
             spread.on('remove', () => window.__legend.setSectionVisible('spread', false));
+
             lc.addOverlay(spread, NAME_SPREAD);
         } catch (e) { console.error('[Incidents] Spread failed:', e); }
 
         // Heat
         try {
             const raw = await fetchJson(URL_HEAT);
-            const { kind, wkid, features } = normalizeAny(raw);
-            const heat = (kind === 'geojson')
-                ? buildHeat_GeoJSON({ type: 'FeatureCollection', features }, NAME_HEAT)
-                : buildHeat_ESRI(features, wkid, NAME_HEAT);
-            lc.addOverlay(heat, NAME_HEAT);
+            const norm = normalizeAny(raw);
+            const heatPack = (norm.kind === 'geojson')
+                ? buildHeat_GeoJSON({ type: 'FeatureCollection', features: norm.features }, NAME_HEAT)
+                : buildHeat_ESRI(norm.features, norm.wkid, NAME_HEAT);
+
+            // Tie heat min/max to legend when toggled
+            heatPack.layer.on('add', () => window.__legend.setHeatLegend(true, heatPack.min, heatPack.max));
+            heatPack.layer.on('remove', () => window.__legend.setHeatLegend(false, null, null));
+
+            lc.addOverlay(heatPack.layer, NAME_HEAT);
         } catch (e) { console.error('[Incidents] Heat failed:', e); }
 
         // Points
         try {
             const raw = await fetchJson(URL_POINTS);
-            const { kind, wkid, features } = normalizeAny(raw);
-            const pts = (kind === 'geojson')
-                ? buildPoints_GeoJSON({ type: 'FeatureCollection', features }, NAME_POINTS)
-                : buildPoints_ESRI(features, wkid, NAME_POINTS);
+            const norm = normalizeAny(raw);
+            const pts = (norm.kind === 'geojson')
+                ? buildPoints_GeoJSON({ type: 'FeatureCollection', features: norm.features }, NAME_POINTS)
+                : buildPoints_ESRI(norm.features, norm.wkid, NAME_POINTS);
+
             lc.addOverlay(pts, NAME_POINTS);
         } catch (e) { console.error('[Incidents] Points failed:', e); }
     })();
-
+})();
