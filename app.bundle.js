@@ -656,7 +656,4 @@
         } catch (e) { console.error('[Incidents] Points failed:', e); }
     })();
 
-    /* ---------- 3) After BOTH are loaded, rebuild in your order ---------- */
-    Promise.all([serviceAreasLoaded, incidentsLoaded]).then(() => {
-        rebuildLayersControlInDesiredOrder();
-    });
+   
