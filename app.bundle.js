@@ -12,17 +12,20 @@
 
     /* ===================== Helpers ====================== */
     const isWM = w => w === 3857 || w === 102100 || w === 102113;
+
     function merc2ll(x, y) {
         const R = 6378137;
         const lon = (x / R) * 180 / Math.PI;
         const lat = (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * 180 / Math.PI;
         return [lat, lon];
     }
+
     function pt2ll(pt, wkid) {
         if (Array.isArray(pt)) return isWM(wkid) ? merc2ll(pt[0], pt[1]) : [pt[1], pt[0]];
         if (pt && 'x' in pt && 'y' in pt) return isWM(wkid) ? merc2ll(pt.x, pt.y) : [pt.y, pt.x];
         return null;
     }
+
     function getPropCI(obj, ...cands) {
         if (!obj) return undefined;
         const lower = Object.create(null);
@@ -31,7 +34,9 @@
             const real = lower[String(c).toLowerCase()];
             if (real !== undefined) return obj[real];
         }
+        return undefined;
     }
+
     async function fetchJson(url) {
         const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now(), { cache: 'no-store' });
         const txt = await res.text();
@@ -39,6 +44,7 @@
         const clean = txt.charCodeAt(0) === 0xFEFF ? txt.slice(1) : txt;
         return JSON.parse(clean);
     }
+
     // Accept ESRI FeatureSet, GeoJSON FC, or ArcGIS layers wrapper
     function normalizeAny(data) {
         if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) {
@@ -46,8 +52,10 @@
         }
         let wkid = data?.spatialReference?.wkid ?? data?.spatialReference?.latestWkid;
         if (Array.isArray(data?.features)) {
-            if (!wkid && data.features.length) wkid = data.features[0]?.geometry?.spatialReference?.wkid
-                ?? data.features[0]?.geometry?.spatialReference?.latestWkid;
+            if (!wkid && data.features.length) {
+                wkid = data.features[0]?.geometry?.spatialReference?.wkid
+                    ?? data.features[0]?.geometry?.spatialReference?.latestWkid;
+            }
             return { kind: 'esri', wkid, features: data.features };
         }
         const collect = (layers) => {
@@ -74,8 +82,7 @@
     ];
     const COLOR = Object.fromEntries(STATION_IDS.map((id, i) => [String(id), PALETTE[i % PALETTE.length]]));
 
-    // expose for debugging
-    window.STATION_IDS = STATION_IDS;
+    window.STATION_IDS = STATION_IDS; // expose for debugging
     window.PALETTE = PALETTE;
 
     /* ===================== ONE Layers control ====================== */
@@ -88,8 +95,7 @@
         const visibleKeys = new Set();   // which keyed sections are visible
         let heatActive = false, heatMin = null, heatMax = null;
 
-        // ***** EXACT ORDER you requested *****
-       
+        // EXACT ORDER requested
         const ORDER = [
             { type: 'label', key: 'stations', label: 'Fire Stations' },
             { type: 'label', key: 'spread', label: 'Incidents Spread' },
@@ -101,7 +107,6 @@
             { type: 'sa', key: 'bmed', label: 'Backups – Medium' },
             { type: 'sa', key: 'bhigh', label: 'Backups – High' }
         ];
-
 
         const HEAT_LEFT = '#f7fbff';
         const HEAT_RIGHT = '#08306b';
@@ -116,6 +121,7 @@
                 }
                 return s;
             }
+
             if (key === 'heat') {
                 if (heatActive && Number.isFinite(heatMin) && Number.isFinite(heatMax)) {
                     return `<div style="margin-top:6px;"><b>${label}</b></div>
@@ -127,7 +133,8 @@
                 }
                 return '';
             }
-            // Service-area and spread sections: only when visible
+
+            // Service-area & spread sections only when visible
             return visibleKeys.has(key) ? `<div style="margin-top:6px;"><b>${label}</b></div>` : '';
         }
 
@@ -185,11 +192,17 @@
 
         return {
             ensure,
-            setCollapsed(v) { if (!ctrl) ensure(); const h = ctrl.getContainer().querySelector('.legend-header'); const body = h.nextSibling; if (!!v === (body.style.display === 'block')) h.click(); },
+            setCollapsed(v) {
+                if (!ctrl) ensure();
+                const h = ctrl.getContainer().querySelector('.legend-header');
+                const body = h.nextSibling;
+                const currentlyOpen = body.style.display === 'block';
+                if (!!v === currentlyOpen) h.click(); // toggle if needed
+            },
             addKey(key) { ensure(); visibleKeys.add(key); refresh(); },
             removeKey(key) { visibleKeys.delete(key); refresh(); },
             setHeatLegend(active, min, max) { ensure(); heatActive = !!active; heatMin = min ?? null; heatMax = max ?? null; refresh(); },
-            setSectionVisible(key, visible) { ensure(); if (visible) visibleKeys.add(key); else visibleKeys.delete(key); refresh(); }
+            setSectionVisible(key, v) { ensure(); if (v) visibleKeys.add(key); else visibleKeys.delete(key); refresh(); }
         };
     })();
 
@@ -205,7 +218,7 @@
         function apply() {
             for (const rec of window.__serviceAreaRegistry) {
                 const grp = rec.parent;
-                if (!map.hasLayer(grp)) continue; // only adjust visible group
+                if (!map.hasLayer(grp)) continue;
                 const wantOn = selected.has(rec.stationId);
                 const hasIt = grp.hasLayer(rec.layer);
                 if (wantOn && !hasIt) grp.addLayer(rec.layer);
@@ -224,7 +237,6 @@
                 wrap.style.boxShadow = '0 0 5px rgba(0,0,0,.3)';
                 wrap.style.minWidth = '220px';
 
-                // header
                 const header = L.DomUtil.create('div', 'sf-header', wrap);
                 header.style.display = 'flex';
                 header.style.alignItems = 'center';
@@ -234,7 +246,6 @@
                 header.style.fontWeight = '600';
                 header.innerHTML = `<span>Filter: Stations</span><span class="sf-caret" style="font-weight:700;user-select:none;">${isOpen ? '▾' : '▸'}</span>`;
 
-                // body
                 const body = L.DomUtil.create('div', 'sf-body', wrap);
                 body.style.display = isOpen ? 'block' : 'none';
                 body.style.maxHeight = '46vh';
@@ -266,14 +277,18 @@
                 }
                 header.addEventListener('click', toggle);
 
-                // events
-                L.DomEvent.disableClickPropagation(wrap); L.DomEvent.disableScrollPropagation(wrap);
+                L.DomEvent.disableClickPropagation(wrap);
+                L.DomEvent.disableScrollPropagation(wrap);
+
                 controls.querySelector('.sf-all').onclick = () => {
                     selected.clear(); STATION_IDS.forEach(i => selected.add(i));
-                    body.querySelectorAll('input[data-st]').forEach(cb => cb.checked = true); apply();
+                    body.querySelectorAll('input[data-st]').forEach(cb => cb.checked = true);
+                    apply();
                 };
                 controls.querySelector('.sf-none').onclick = () => {
-                    selected.clear(); body.querySelectorAll('input[data-st]').forEach(cb => cb.checked = false); apply();
+                    selected.clear();
+                    body.querySelectorAll('input[data-st]').forEach(cb => cb.checked = false);
+                    apply();
                 };
                 body.addEventListener('change', e => {
                     const t = e.target; if (!t.matches('input[data-st]')) return;
@@ -328,6 +343,7 @@
         group.on('remove', () => { window.__legend.removeKey(layerKey); });
         return group;
     }
+
     function buildGeoJSONServiceArea(fc, layerLabel, stationKeyCandidates, layerKey) {
         const group = L.layerGroup();
         const gj = L.geoJSON(fc, {
@@ -381,6 +397,7 @@
         }
         return L.layerGroup(polys);
     }
+
     function buildIncidentsSpread_GeoJSON(fc, name) {
         return L.geoJSON(fc, {
             style: f => {
@@ -436,6 +453,7 @@
         }
         return { layer: L.layerGroup(polys), min, max };
     }
+
     function buildHeat_GeoJSON(fc, name) {
         const vals = (fc.features || []).map(f => Number(ci(f.properties || {}, 'Incidents'))).filter(Number.isFinite);
         const min = vals.length ? Math.min(...vals) : 0;
@@ -469,11 +487,13 @@
         const oid = ci(a, 'OBJECTID', 'FID'); const n = Number(oid);
         return Number.isFinite(n) ? n : (oid ?? null);
     }
+
     function stylePoint(st) {
         if (st === 113 || st === '113') return null;
         const fill = (COLOR[String(st)] || '#e41a1c');
         return { radius: 6, fillColor: fill, color: '#222', weight: 1, fillOpacity: 0.9 };
     }
+
     function buildPoints_ESRI(features, wkid, name) {
         const layers = [];
         for (const f of features) {
@@ -501,7 +521,6 @@
       `);
             layers.push(m);
 
-            // label near the point
             layers.push(L.marker(latlng, {
                 icon: L.divIcon({
                     className: 'stn-label',
@@ -513,6 +532,7 @@
         }
         return L.layerGroup(layers);
     }
+
     function buildPoints_GeoJSON(fc, name) {
         const group = L.layerGroup();
         L.geoJSON(fc, {
@@ -543,7 +563,6 @@
     }
 
     /* ===================== Config ====================== */
-    // Service areas (KEYED in legend — note keys match legend ORDER)
     const SA_LAYERS = [
         { key: 'existing', label: 'Existing Service Areas', url: './data/Existing_Service_Areas.json', stationKeys: ['Low_Hazard1'] },
         { key: 'nfpa', label: 'Optimized NFPA Service Areas', url: './data/Optimized_NFPA_Service_Areas.json', stationKeys: ['Areas', 'Low_Hazard1'] },
@@ -553,7 +572,7 @@
         { key: 'bhigh', label: 'Backups – High', url: './data/Service_Areas_Backups_High.json', stationKeys: ['High_Hazard2'] }
     ];
 
-    // Incidents (LABELS only changed — directory paths remain the same)
+    // Incidents (labels only; directories unchanged)
     const NAME_SPREAD = 'Incidents – Spread';
     const URL_SPREAD = './data/Incidents_Spread.json';
 
@@ -563,19 +582,18 @@
     const NAME_POINTS = 'Fire Stations';
     const URL_POINTS = './data/Fire_Stations.json';
 
-    /* ===================== Loaders ====================== */
+    /* ===================== Loaders & ordered rebuild ====================== */
     const overlays = {};
 
-    // Rebuild Layers control in the exact sequence you want
     function rebuildLayersControlInDesiredOrder() {
         if (window.layerControl) {
-            try { map.removeControl(window.layerControl); } catch (_) { }
+            try { map.removeControl(window.layerControl); } catch (_) { /* ignore */ }
         }
         const lc = L.control.layers(null, {}, { collapsed: true }).addTo(map);
         window.layerControl = lc;
 
         const desired = [
-            'Fire Stations',                 // points
+            'Fire Stations',
             'Incidents – Spread',
             'Incidents – Heat Map',
             'Optimized Augmented Service Areas',
@@ -585,13 +603,12 @@
             'Backups – Medium',
             'Backups – High'
         ];
-
         for (const name of desired) {
             if (overlays[name]) lc.addOverlay(overlays[name], name);
         }
     }
 
-    /* ---------- 1) Service areas ---------- */
+    // 1) Service areas
     const serviceAreasLoaded = Promise.all(SA_LAYERS.map(async cfg => {
         const raw = await fetchJson(cfg.url);
         const norm = normalizeAny(raw);
@@ -603,15 +620,11 @@
         } else {
             throw new Error(`${cfg.label}: unsupported data format`);
         }
-
-        overlays[cfg.label] = grp;               // <-- store for ordered rebuild
-        layerControl.addOverlay(grp, cfg.label); // still add now so UI works before rebuild
+        overlays[cfg.label] = grp;
+        layerControl.addOverlay(grp, cfg.label); // interim add
         return grp;
     })).then(() => {
-        // Turn on ONLY Existing by default
         overlays['Existing Service Areas']?.addTo(map);
-
-        // Fit to Existing
         const eg = overlays['Existing Service Areas'];
         if (eg) {
             const b = L.featureGroup(eg.getLayers()).getBounds();
@@ -619,7 +632,7 @@
         }
     }).catch(console.error);
 
-    /* ---------- 2) Incidents (Spread / Heat / Points) ---------- */
+    // 2) Incidents (Spread / Heat / Points)
     const incidentsLoaded = (async () => {
         try {
             const raw = await fetchJson(URL_SPREAD);
@@ -654,9 +667,11 @@
             overlays[NAME_POINTS] = pts;
             layerControl.addOverlay(pts, NAME_POINTS);
         } catch (e) { console.error('[Incidents] Points failed:', e); }
-    })();  // <-- close the IIFE here
+    })(); // closes incidentsLoaded IIFE
 
-    // After BOTH are loaded, rebuild in your order
+    // 3) After BOTH loaders finish, rebuild in the requested order
     Promise.all([serviceAreasLoaded, incidentsLoaded]).then(() => {
         rebuildLayersControlInDesiredOrder();
     });
+
+})(); // closes OUTER file-wrapper IIFE
