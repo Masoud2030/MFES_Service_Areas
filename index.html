@@ -11,17 +11,17 @@
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossorigin="" />
 
-    <!-- Your custom CSS (put your styles in /css/styles.css) -->
+    <!-- Optional site CSS -->
     <link rel="stylesheet" href="./css/styles.css" />
 
     <style>
-        /* Minimal fallback styles so the map always shows */
+        /* Ensure the map fills the page */
         html, body, #map {
             height: 100%;
             margin: 0;
         }
 
-        /* Legend container (app.js inserts content) */
+        /* Collapsible legend container (app.bundle.js populates it) */
         .legend {
             background: #fff;
             padding: 8px;
@@ -31,11 +31,15 @@
             box-shadow: 0 0 5px rgba(0,0,0,0.3);
         }
 
-        /* Station number labels added by incidents.js */
+        .legend-header {
+            user-select: none;
+        }
+
+        /* Station number labels created via L.divIcon */
         .stn-label {
-            pointer-events: none; /* let mouse events through to the map */
+            pointer-events: none;
             white-space: nowrap;
-            transform: translateY(-8px); /* nudge up a bit from the marker */
+            transform: translateY(-8px);
         }
     </style>
 </head>
@@ -49,14 +53,9 @@
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
 
-    <!-- Optional: true heatmap support (if you switch to L.heatLayer later) -->
-    <!-- <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js" defer></script> -->
-    <!-- Your scripts (ORDER MATTERS) -->
-    <script src="./app.js" defer></script>        <!-- defines map, legend, filter -->
-    <script src="./incidents.js" defer></script>  <!-- adds incidents/points overlays -->
+    <!-- Your single merged script (one legend, one layers control) -->
+    <script src="./app.bundle.js?v=1" defer></script>
 
-    <noscript>
-        This map requires JavaScript. Please enable JavaScript in your browser.
-    </noscript>
+    <noscript>This map requires JavaScript. Please enable JavaScript in your browser.</noscript>
 </body>
 </html>
