@@ -1,4 +1,4 @@
-﻿// app.bundle.js — unified map, ONE collapsible legend, ESRI+GeoJSON support
+﻿// app.bundle.js — unified map, ONE collapsible legend, collapsible station filter
 (function () {
     'use strict';
     console.log('MFES bundle loaded ✅', new Date().toISOString());
@@ -63,15 +63,6 @@
         if (Array.isArray(data?.featureCollection?.layers)) return collect(data.featureCollection.layers);
         return { kind: 'unknown' };
     }
-    const waitFor = (fn, timeout = 6000) => new Promise(resolve => {
-        const t0 = Date.now();
-        (function tick() {
-            const v = fn();
-            if (v) return resolve(v);
-            if (Date.now() - t0 > timeout) return resolve(null);
-            setTimeout(tick, 50);
-        })();
-    });
 
     /* ===================== Station palette ====================== */
     const STATION_IDS = [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 114, 115, 116, 117, 118, 119, 120, 121, 122]; // 113 skipped
@@ -97,16 +88,17 @@
         const visibleKeys = new Set();   // which keyed sections are visible
         let heatActive = false, heatMin = null, heatMax = null;
 
+        // ***** EXACT ORDER you requested *****
         const ORDER = [
             { type: 'label', key: 'stations', label: 'Fire Stations' },
-            { type: 'heat', key: 'heat', label: 'Incidents – Heat Map' },
-            { type: 'label', key: 'spread', label: 'Incidents – Spread' },
+            { type: 'label', key: 'spread', label: 'Incidents Spread' },
+            { type: 'heat', key: 'heat', label: 'Incidents Heat Map' },
+            { type: 'sa', key: 'aug', label: 'Optimized Augmented Service Areas' },
+            { type: 'sa', key: 'ful', label: 'Optimized Fulfilled Service Areas' },
+            { type: 'sa', key: 'nfpa', label: 'Optimized NFPA Service Areas' },
             { type: 'sa', key: 'existing', label: 'Existing Service Areas' },
-            { type: 'sa', key: 'nfpa', label: 'Optimized – NFPA Service Areas' },
-            { type: 'sa', key: 'aug', label: 'Optimized – Augmented Service Areas' },
-            { type: 'sa', key: 'ful', label: 'Optimized – Fulfilled Service Areas' },
-            { type: 'sa', key: 'bmed', label: 'Backups – Medium' },
-            { type: 'sa', key: 'bhigh', label: 'Backups – High' }
+            { type: 'sa', key: 'bhigh', label: 'Backups – High' },
+            { type: 'sa', key: 'bmed', label: 'Backups – Medium' }
         ];
 
         const HEAT_LEFT = '#f7fbff';
@@ -133,6 +125,7 @@
                 }
                 return '';
             }
+            // Service-area and spread sections: only when visible
             return visibleKeys.has(key) ? `<div style="margin-top:6px;"><b>${label}</b></div>` : '';
         }
 
@@ -190,7 +183,7 @@
 
         return {
             ensure,
-            setCollapsed(v) { if (!ctrl) ensure(); const h = ctrl.getContainer().querySelector('.legend-header'); if (!!v === (h.nextSibling.style.display === 'block')) h.click(); },
+            setCollapsed(v) { if (!ctrl) ensure(); const h = ctrl.getContainer().querySelector('.legend-header'); const body = h.nextSibling; if (!!v === (body.style.display === 'block')) h.click(); },
             addKey(key) { ensure(); visibleKeys.add(key); refresh(); },
             removeKey(key) { visibleKeys.delete(key); refresh(); },
             setHeatLegend(active, min, max) { ensure(); heatActive = !!active; heatMin = min ?? null; heatMax = max ?? null; refresh(); },
@@ -198,14 +191,15 @@
         };
     })();
 
-    window.__legend.ensure();         // create legend control
+    window.__legend.ensure();
     window.__legend.setCollapsed(true); // start collapsed
 
-    /* ===================== Station filter (service areas only) ====================== */
+    /* ===================== Collapsible Station filter ====================== */
     window.__serviceAreaRegistry = []; // {layer, stationId, parent, baseStyle}
     window.__stationFilter = (function () {
-        let ctrl;
+        let ctrl, isOpen = false; // start collapsed
         const selected = new Set(STATION_IDS);
+
         function apply() {
             for (const rec of window.__serviceAreaRegistry) {
                 const grp = rec.parent;
@@ -216,38 +210,77 @@
                 else if (!wantOn && hasIt) grp.removeLayer(rec.layer);
             }
         }
+
         function ensure() {
             if (ctrl) return ctrl;
             ctrl = L.control({ position: 'topright' });
             ctrl.onAdd = () => {
-                const div = L.DomUtil.create('div', 'leaflet-bar');
-                div.style.padding = '6px';
-                div.style.background = 'white';
-                div.style.maxHeight = '46vh';
-                div.style.overflow = 'auto';
-                div.style.border = '1px solid #999';
-                div.style.borderRadius = '4px';
-                const mk = id => `<label style="display:inline-flex;align-items:center;margin:2px 6px 2px 0;">
-          <input type="checkbox" data-st="${id}" checked style="margin-right:4px;">${id}</label>`;
-                div.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">Filter: Stations</div>
-          <div style="margin-bottom:4px;"><button type="button" class="sf-all">All</button>
-          <button type="button" class="sf-none">None</button></div>
-          <div style="display:flex;flex-wrap:wrap;max-width:220px;">${STATION_IDS.map(mk).join('')}</div>`;
-                L.DomEvent.disableClickPropagation(div); L.DomEvent.disableScrollPropagation(div);
-                div.querySelector('.sf-all').onclick = () => {
+                const wrap = L.DomUtil.create('div', 'leaflet-bar');
+                wrap.style.background = 'white';
+                wrap.style.border = '1px solid #999';
+                wrap.style.borderRadius = '4px';
+                wrap.style.boxShadow = '0 0 5px rgba(0,0,0,.3)';
+                wrap.style.minWidth = '220px';
+
+                // header
+                const header = L.DomUtil.create('div', 'sf-header', wrap);
+                header.style.display = 'flex';
+                header.style.alignItems = 'center';
+                header.style.justifyContent = 'space-between';
+                header.style.cursor = 'pointer';
+                header.style.padding = '6px 8px';
+                header.style.fontWeight = '600';
+                header.innerHTML = `<span>Filter: Stations</span><span class="sf-caret" style="font-weight:700;user-select:none;">${isOpen ? '▾' : '▸'}</span>`;
+
+                // body
+                const body = L.DomUtil.create('div', 'sf-body', wrap);
+                body.style.display = isOpen ? 'block' : 'none';
+                body.style.maxHeight = '46vh';
+                body.style.overflow = 'auto';
+                body.style.padding = '6px 8px';
+
+                const controls = document.createElement('div');
+                controls.style.marginBottom = '6px';
+                controls.innerHTML = `<button type="button" class="sf-all">All</button> <button type="button" class="sf-none">None</button>`;
+                body.appendChild(controls);
+
+                const grid = document.createElement('div');
+                grid.style.display = 'flex';
+                grid.style.flexWrap = 'wrap';
+                grid.style.gap = '4px 8px';
+                STATION_IDS.forEach(id => {
+                    const lbl = document.createElement('label');
+                    lbl.style.display = 'inline-flex';
+                    lbl.style.alignItems = 'center';
+                    lbl.innerHTML = `<input type="checkbox" data-st="${id}" checked style="margin-right:4px;">${id}`;
+                    grid.appendChild(lbl);
+                });
+                body.appendChild(grid);
+
+                function toggle() {
+                    isOpen = !isOpen;
+                    body.style.display = isOpen ? 'block' : 'none';
+                    header.querySelector('.sf-caret').textContent = isOpen ? '▾' : '▸';
+                }
+                header.addEventListener('click', toggle);
+
+                // events
+                L.DomEvent.disableClickPropagation(wrap); L.DomEvent.disableScrollPropagation(wrap);
+                controls.querySelector('.sf-all').onclick = () => {
                     selected.clear(); STATION_IDS.forEach(i => selected.add(i));
-                    div.querySelectorAll('input[data-st]').forEach(cb => cb.checked = true); apply();
+                    body.querySelectorAll('input[data-st]').forEach(cb => cb.checked = true); apply();
                 };
-                div.querySelector('.sf-none').onclick = () => {
-                    selected.clear(); div.querySelectorAll('input[data-st]').forEach(cb => cb.checked = false); apply();
+                controls.querySelector('.sf-none').onclick = () => {
+                    selected.clear(); body.querySelectorAll('input[data-st]').forEach(cb => cb.checked = false); apply();
                 };
-                div.addEventListener('change', e => {
+                body.addEventListener('change', e => {
                     const t = e.target; if (!t.matches('input[data-st]')) return;
                     const id = Number(t.getAttribute('data-st'));
                     if (t.checked) selected.add(id); else selected.delete(id);
                     apply();
                 });
-                return div;
+
+                return wrap;
             };
             ctrl.addTo(map);
             map.on('overlayadd overlayremove', () => apply());
@@ -508,20 +541,20 @@
     }
 
     /* ===================== Config ====================== */
-    // Service areas (KEYED in legend)
+    // Service areas (KEYED in legend — note keys match legend ORDER)
     const SA_LAYERS = [
         { key: 'existing', label: 'Existing Service Areas', url: './data/Existing_Service_Areas.json', stationKeys: ['Low_Hazard1'] },
-        { key: 'nfpa', label: 'Optimized – NFPA Service Areas', url: './data/Optimized_NFPA_Service_Areas.json', stationKeys: ['Areas', 'Low_Hazard1'] },
-        { key: 'aug', label: 'Optimized – Augmented Service Areas', url: './data/Optimized_Augmented_Service_Areas.json', stationKeys: ['Low_Hazard1'] },
-        { key: 'ful', label: 'Optimized – Fulfilled Service Areas', url: './data/Optimized_Fulfilled_Service_Areas.json', stationKeys: ['Low_Hazard1'] },
+        { key: 'nfpa', label: 'Optimized NFPA Service Areas', url: './data/Optimized_NFPA_Service_Areas.json', stationKeys: ['Areas', 'Low_Hazard1'] },
+        { key: 'aug', label: 'Optimized Augmented Service Areas', url: './data/Optimized_Augmented_Service_Areas.json', stationKeys: ['Low_Hazard1'] },
+        { key: 'ful', label: 'Optimized Fulfilled Service Areas', url: './data/Optimized_Fulfilled_Service_Areas.json', stationKeys: ['Low_Hazard1'] },
         { key: 'bmed', label: 'Backups – Medium', url: './data/Service_Areas_Backups_Medium.json', stationKeys: ['Low_Hazard2'] },
         { key: 'bhigh', label: 'Backups – High', url: './data/Service_Areas_Backups_High.json', stationKeys: ['High_Hazard2'] }
     ];
 
     // Incidents
-    const NAME_SPREAD = 'Incidents – Spread';
+    const NAME_SPREAD = 'Incidents Spread';
     const URL_SPREAD = './data/Incidents_Spread.json';
-    const NAME_HEAT = 'Incidents – Heat Map';
+    const NAME_HEAT = 'Incidents Heat Map';
     const URL_HEAT = './data/Incidents_Heat_Map.json';
     const NAME_POINTS = 'Fire Stations';
     const URL_POINTS = './data/Fire_Stations.json';
