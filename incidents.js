@@ -298,45 +298,47 @@
     }
 
     /* ---------------------- Loader ------------------------ */
+    /* ---------------------- Loader ------------------------ */
     (async () => {
         const map = await waitFor(() => window.map);
-        if (!map) { console.error('[Incidents] Map not found. Ensure app.js loads first.'); return; }
-
-        // Create (or reuse) a Leaflet layer control
-        let lc = window.layerControl;
-        if (!lc) {
-            lc = L.control.layers({}, {}, { collapsed: true }).addTo(map);
-            window.layerControl = lc;
+        const lc = await waitFor(() => window.layerControl);
+        const legend = await waitFor(() => window.__legend);
+        if (!map || !lc || !legend) {
+            console.error('[Incidents] Missing dependencies (map/layerControl/legend). Ensure app.js loads first.');
+            return;
         }
 
         // Spread
         try {
             const raw = await fetchJson(URL_SPREAD);
-            const norm = normalizeAny(raw);
-            const spread = (norm.kind === 'geojson')
-                ? buildIncidentsSpread_GeoJSON({ type: 'FeatureCollection', features: norm.features }, NAME_SPREAD)
-                : buildIncidentsSpread_ESRI(norm.features, norm.wkid, NAME_SPREAD);
+            const { kind, wkid, features } = normalizeAny(raw);
+            const spread = (kind === 'geojson')
+                ? buildIncidentsSpread_GeoJSON({ type: 'FeatureCollection', features }, NAME_SPREAD)
+                : buildIncidentsSpread_ESRI(features, wkid, NAME_SPREAD);
+            // Hook legend section "spread"
+            spread.on('add', () => window.__legend.setSectionVisible('spread', true));
+            spread.on('remove', () => window.__legend.setSectionVisible('spread', false));
             lc.addOverlay(spread, NAME_SPREAD);
         } catch (e) { console.error('[Incidents] Spread failed:', e); }
 
         // Heat
         try {
             const raw = await fetchJson(URL_HEAT);
-            const norm = normalizeAny(raw);
-            const heat = (norm.kind === 'geojson')
-                ? buildHeat_GeoJSON({ type: 'FeatureCollection', features: norm.features }, NAME_HEAT)
-                : buildHeat_ESRI(norm.features, norm.wkid, NAME_HEAT);
+            const { kind, wkid, features } = normalizeAny(raw);
+            const heat = (kind === 'geojson')
+                ? buildHeat_GeoJSON({ type: 'FeatureCollection', features }, NAME_HEAT)
+                : buildHeat_ESRI(features, wkid, NAME_HEAT);
             lc.addOverlay(heat, NAME_HEAT);
         } catch (e) { console.error('[Incidents] Heat failed:', e); }
 
         // Points
         try {
             const raw = await fetchJson(URL_POINTS);
-            const norm = normalizeAny(raw);
-            const pts = (norm.kind === 'geojson')
-                ? buildPoints_GeoJSON({ type: 'FeatureCollection', features: norm.features }, NAME_POINTS)
-                : buildPoints_ESRI(norm.features, norm.wkid, NAME_POINTS);
+            const { kind, wkid, features } = normalizeAny(raw);
+            const pts = (kind === 'geojson')
+                ? buildPoints_GeoJSON({ type: 'FeatureCollection', features }, NAME_POINTS)
+                : buildPoints_ESRI(features, wkid, NAME_POINTS);
             lc.addOverlay(pts, NAME_POINTS);
         } catch (e) { console.error('[Incidents] Points failed:', e); }
     })();
-})();
+

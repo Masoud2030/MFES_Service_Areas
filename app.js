@@ -67,6 +67,10 @@ function normalizeAny(data) {
     return { kind: 'unknown' };
 }
 
+// Create a single Layers control up-front (collapsed UI)
+const lc = L.control.layers(null, {}, { collapsed: true }).addTo(map);
+window.layerControl = lc;
+
 /* ===================== Station palette ====================== */
 const STATION_IDS = [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 114, 115, 116, 117, 118, 119, 120, 121, 122]; // 113 skipped
 const PALETTE = [
@@ -85,9 +89,10 @@ window.PALETTE = PALETTE;
 window.__serviceAreaRegistry = window.__serviceAreaRegistry || []; // {layer, stationId, parent, baseStyle}
 
 /* ===================== Unified legend (keyed, self-contained) ====================== */
+/* ===================== Unified legend (keyed, collapsible) ====================== */
 window.__legend = window.__legend || (function () {
-    let ctrl;
-    const visibleKeys = new Set();           // which keyed sections are on
+    let ctrl, isOpen = false;          // start collapsed
+    const visibleKeys = new Set();     // which keyed sections are on
     let heatActive = false, heatMin = null, heatMax = null;
 
     const ORDER = [
@@ -129,8 +134,8 @@ window.__legend = window.__legend || (function () {
         return visibleKeys.has(key) ? `<div style="margin-top:6px;"><b>${label}</b></div>` : '';
     }
 
-    function buildHTML() {
-        let html = '<div style="font-weight:600;margin-bottom:4px;">Legend</div>';
+    function innerHTML() {
+        let html = '';
         for (const entry of ORDER) html += sectionHTML(entry);
         return html;
     }
@@ -139,32 +144,57 @@ window.__legend = window.__legend || (function () {
         if (ctrl) return ctrl;
         ctrl = L.control({ position: 'bottomleft' });
         ctrl.onAdd = () => {
-            const div = L.DomUtil.create('div', 'legend');
-            div.style.maxHeight = '42vh';
-            div.style.overflow = 'auto';
-            div.style.background = 'white';
-            div.style.padding = '6px';
-            div.style.border = '1px solid #999';
-            div.innerHTML = buildHTML();
-            return div;
+            const wrap = L.DomUtil.create('div', 'legend leaflet-bar');
+            wrap.style.background = '#fff';
+            wrap.style.border = '1px solid #999';
+            wrap.style.minWidth = '180px';
+
+            const header = L.DomUtil.create('div', 'legend-header', wrap);
+            header.style.display = 'flex';
+            header.style.alignItems = 'center';
+            header.style.justifyContent = 'space-between';
+            header.style.cursor = 'pointer';
+            header.style.padding = '6px 8px';
+            header.style.fontWeight = '600';
+            header.innerHTML = `<span>Legend</span><span class="legend-caret" style="font-weight:700;user-select:none;">${isOpen ? '▾' : '▸'}</span>`;
+
+            const body = L.DomUtil.create('div', 'legend-body', wrap);
+            body.style.display = isOpen ? 'block' : 'none';
+            body.style.maxHeight = '42vh';
+            body.style.overflow = 'auto';
+            body.style.padding = '6px 8px';
+            body.innerHTML = innerHTML();
+
+            function toggle() {
+                isOpen = !isOpen;
+                body.style.display = isOpen ? 'block' : 'none';
+                header.querySelector('.legend-caret').textContent = isOpen ? '▾' : '▸';
+            }
+            header.addEventListener('click', toggle);
+            L.DomEvent.disableClickPropagation(wrap);
+            L.DomEvent.disableScrollPropagation(wrap);
+
+            return wrap;
         };
         ctrl.addTo(map);
         return ctrl;
     }
 
     function refresh() {
-        const c = ctrl?.getContainer();
-        if (c) c.innerHTML = buildHTML();
+        const body = ctrl?.getContainer()?.querySelector('.legend-body');
+        if (body) body.innerHTML = innerHTML();
     }
 
     return {
         ensure,
+        setCollapsed(v) { isOpen = !v; const c = ctrl?.getContainer(); if (c) c.querySelector('.legend-header')?.click(); },
         addKey(key) { ensure(); visibleKeys.add(key); refresh(); },
         removeKey(key) { visibleKeys.delete(key); refresh(); },
         setHeatLegend(active, min, max) { ensure(); heatActive = !!active; heatMin = min ?? null; heatMax = max ?? null; refresh(); },
         setSectionVisible(key, visible) { ensure(); if (visible) visibleKeys.add(key); else visibleKeys.delete(key); refresh(); }
     };
 })();
+
 
 /* ===================== Station filter (service areas only) ====================== */
 window.__stationFilter = window.__stationFilter || (function () {
