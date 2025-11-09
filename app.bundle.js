@@ -565,6 +565,8 @@
 
     /* ===================== Loaders ====================== */
     const overlays = {};
+
+    // Rebuild Layers control in the exact sequence you want
     function rebuildLayersControlInDesiredOrder() {
         if (window.layerControl) {
             try { map.removeControl(window.layerControl); } catch (_) { }
@@ -589,8 +591,8 @@
         }
     }
 
-    // Load service areas
-    Promise.all(SA_LAYERS.map(async cfg => {
+    /* ---------- 1) Service areas ---------- */
+    const serviceAreasLoaded = Promise.all(SA_LAYERS.map(async cfg => {
         const raw = await fetchJson(cfg.url);
         const norm = normalizeAny(raw);
         let grp;
@@ -601,8 +603,9 @@
         } else {
             throw new Error(`${cfg.label}: unsupported data format`);
         }
-        overlays[cfg.label] = grp;
-        layerControl.addOverlay(grp, cfg.label);
+
+        overlays[cfg.label] = grp;               // <-- store for ordered rebuild
+        layerControl.addOverlay(grp, cfg.label); // still add now so UI works before rebuild
         return grp;
     })).then(() => {
         // Turn on ONLY Existing by default
@@ -616,8 +619,8 @@
         }
     }).catch(console.error);
 
-    // Load incidents (Spread / Heat / Points)
-    (async () => {
+    /* ---------- 2) Incidents (Spread / Heat / Points) ---------- */
+    const incidentsLoaded = (async () => {
         try {
             const raw = await fetchJson(URL_SPREAD);
             const norm = normalizeAny(raw);
@@ -626,6 +629,7 @@
                 : buildIncidentsSpread_ESRI(norm.features, norm.wkid, NAME_SPREAD);
             spread.on('add', () => window.__legend.setSectionVisible('spread', true));
             spread.on('remove', () => window.__legend.setSectionVisible('spread', false));
+            overlays[NAME_SPREAD] = spread;              // <-- store
             layerControl.addOverlay(spread, NAME_SPREAD);
         } catch (e) { console.error('[Incidents] Spread failed:', e); }
 
@@ -637,6 +641,7 @@
                 : buildHeat_ESRI(norm.features, norm.wkid, NAME_HEAT);
             heatPack.layer.on('add', () => window.__legend.setHeatLegend(true, heatPack.min, heatPack.max));
             heatPack.layer.on('remove', () => window.__legend.setHeatLegend(false, null, null));
+            overlays[NAME_HEAT] = heatPack.layer;        // <-- store
             layerControl.addOverlay(heatPack.layer, NAME_HEAT);
         } catch (e) { console.error('[Incidents] Heat failed:', e); }
 
@@ -646,7 +651,12 @@
             const pts = (norm.kind === 'geojson')
                 ? buildPoints_GeoJSON({ type: 'FeatureCollection', features: norm.features }, NAME_POINTS)
                 : buildPoints_ESRI(norm.features, norm.wkid, NAME_POINTS);
+            overlays[NAME_POINTS] = pts;                 // <-- store
             layerControl.addOverlay(pts, NAME_POINTS);
         } catch (e) { console.error('[Incidents] Points failed:', e); }
     })();
-})();
+
+    /* ---------- 3) After BOTH are loaded, rebuild in your order ---------- */
+    Promise.all([serviceAreasLoaded, incidentsLoaded]).then(() => {
+        rebuildLayersControlInDesiredOrder();
+    });
