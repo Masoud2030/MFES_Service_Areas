@@ -654,6 +654,9 @@
             overlays[NAME_POINTS] = pts;                 // <-- store
             layerControl.addOverlay(pts, NAME_POINTS);
         } catch (e) { console.error('[Incidents] Points failed:', e); }
-    })();
+        /* ---------- 3) After BOTH are loaded, rebuild in your order ---------- */
+        Promise.all([serviceAreasLoaded, incidentsLoaded]).then(() => {
+            rebuildLayersControlInDesiredOrder();
+        });
 
-   
+    })(); // <— close the outer IIFE
