@@ -89,6 +89,7 @@
         let heatActive = false, heatMin = null, heatMax = null;
 
         // ***** EXACT ORDER you requested *****
+       
         const ORDER = [
             { type: 'label', key: 'stations', label: 'Fire Stations' },
             { type: 'label', key: 'spread', label: 'Incidents Spread' },
@@ -97,9 +98,10 @@
             { type: 'sa', key: 'ful', label: 'Optimized Fulfilled Service Areas' },
             { type: 'sa', key: 'nfpa', label: 'Optimized NFPA Service Areas' },
             { type: 'sa', key: 'existing', label: 'Existing Service Areas' },
-            { type: 'sa', key: 'bhigh', label: 'Backups – High' },
-            { type: 'sa', key: 'bmed', label: 'Backups – Medium' }
+            { type: 'sa', key: 'bmed', label: 'Backups – Medium' },
+            { type: 'sa', key: 'bhigh', label: 'Backups – High' }
         ];
+
 
         const HEAT_LEFT = '#f7fbff';
         const HEAT_RIGHT = '#08306b';
@@ -563,6 +565,29 @@
 
     /* ===================== Loaders ====================== */
     const overlays = {};
+    function rebuildLayersControlInDesiredOrder() {
+        if (window.layerControl) {
+            try { map.removeControl(window.layerControl); } catch (_) { }
+        }
+        const lc = L.control.layers(null, {}, { collapsed: true }).addTo(map);
+        window.layerControl = lc;
+
+        const desired = [
+            'Fire Stations',                 // points
+            'Incidents – Spread',
+            'Incidents – Heat Map',
+            'Optimized Augmented Service Areas',
+            'Optimized Fulfilled Service Areas',
+            'Optimized NFPA Service Areas',
+            'Existing Service Areas',
+            'Backups – Medium',
+            'Backups – High'
+        ];
+
+        for (const name of desired) {
+            if (overlays[name]) lc.addOverlay(overlays[name], name);
+        }
+    }
 
     // Load service areas
     Promise.all(SA_LAYERS.map(async cfg => {
