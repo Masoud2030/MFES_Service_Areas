@@ -11,6 +11,9 @@
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossorigin="" />
 
+    <!-- Optional site CSS (won’t break if missing) -->
+    <link rel="stylesheet" href="./css/styles.css" onerror="this.remove();" />
+
     <style>
         /* Ensure the map fills the page */
         html, body, #map {
@@ -18,7 +21,7 @@
             margin: 0;
         }
 
-        /* Collapsible legend container (app.bundle.js populates it) */
+        /* Collapsible legend container (populated by app.bundle.js) */
         .legend {
             background: #fff;
             padding: 8px;
@@ -45,13 +48,13 @@
     <!-- Map container -->
     <div id="map"></div>
 
-    <!-- Leaflet JS (with SRI) -->
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
 
-    <!-- Your single merged script (one legend, one layers control) -->
-    <script src="./app.bundle.js?v=2" defer></script>
+    <!-- Main script -->
+    <script src="./app.bundle.js?v=3" defer></script>
 
     <noscript>This map requires JavaScript. Please enable JavaScript in your browser.</noscript>
 </body>
