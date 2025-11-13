@@ -755,6 +755,38 @@
         console.log('[RT Chart] Response-time chart rendered ✅');
     });
 
+    /* ===================== RT Chart toggle control ====================== */
+    const rtToggleControl = L.control({ position: 'topleft' });
 
+    rtToggleControl.onAdd = function (map) {
+        const container = L.DomUtil.create('div', 'leaflet-bar');
+
+        const button = L.DomUtil.create('a', '', container);
+        button.href = '#';
+        button.title = 'Toggle response-time chart';
+        button.innerHTML = 'RT';
+        button.style.width = '30px';
+        button.style.textAlign = 'center';
+        button.style.lineHeight = '30px';
+        button.style.display = 'inline-block';
+
+        // Prevent map from dragging/zooming when interacting with the button
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.disableScrollPropagation(container);
+
+        L.DomEvent.on(button, 'click', function (e) {
+            L.DomEvent.preventDefault(e);
+            const panel = document.getElementById('rt-chart-container');
+            if (!panel) return;
+
+            const isHidden = panel.style.display === 'none';
+            panel.style.display = isHidden ? 'block' : 'none';
+        });
+
+        return container;
+    };
+
+    rtToggleControl.addTo(map);
+    });
 
 })(); // closes OUTER file-wrapper IIFE
