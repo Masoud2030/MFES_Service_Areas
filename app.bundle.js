@@ -713,7 +713,6 @@
    ============================================================ */
 
     // ================== RESPONSE TIME CHART (GROUPED) ==================
-    // Build the chart after the page is loaded
     window.addEventListener('load', function () {
         // 1) Check that Chart.js is loaded
         if (typeof Chart === 'undefined') {
@@ -789,5 +788,7 @@
 
         console.log('[RT Chart] Response-time chart rendered ✅');
     });
+
+  
 
 })(); // closes OUTER file-wrapper IIFE
