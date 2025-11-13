@@ -101,10 +101,10 @@
             { type: 'label', key: 'stations', label: 'Fire Stations' },
             { type: 'label', key: 'spread', label: 'Incidents Spread' },
             { type: 'heat', key: 'heat', label: 'Incidents Heat Map' },
+            { type: 'sa', key: 'existing', label: 'Existing Service Areas' },
+            { type: 'sa', key: 'nfpa', label: 'Optimized NFPA Service Areas' },
             { type: 'sa', key: 'aug', label: 'Optimized Augmented Service Areas' },
             { type: 'sa', key: 'ful', label: 'Optimized Fulfilled Service Areas' },
-            { type: 'sa', key: 'nfpa', label: 'Optimized NFPA Service Areas' },
-            { type: 'sa', key: 'existing', label: 'Existing Service Areas' },
             { type: 'sa', key: 'bmed', label: 'Backups – Medium' },
             { type: 'sa', key: 'bhigh', label: 'Backups – High' }
         ];
