@@ -678,66 +678,83 @@
    GROUPED RESPONSE TIME CHART
    ============================================================ */
 
-    const labels = [
-        "NFPA",
-        "Augmented",
-        "Fulfilled"
-    ];
+    // ================== RESPONSE TIME CHART (GROUPED) ==================
+    window.addEventListener('load', function () {
+        // 1) Check that Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.error('[RT Chart] Chart.js not loaded. Check <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>.');
+            return;
+        }
 
-    // Existing values (use null for NA)
-    const existingValues = [
-        276,   // NFPA Existing
-        629,   // Augmented Existing
-        null   // Fulfilled Existing (NA)
-    ];
+        // 2) Get canvas
+        const canvas = document.getElementById('rtChart');
+        if (!canvas) {
+            console.error('[RT Chart] Canvas with id="rtChart" not found in DOM.');
+            return;
+        }
 
-    // Optimized values
-    const optimizedValues = [
-        230,   // NFPA Optimized
-        538,   // Augmented Optimized
-        541    // Fulfilled Optimized
-    ];
+        const ctx = canvas.getContext('2d');
 
-    const ctx = document.getElementById('rtChart').getContext('2d');
+        // 3) Data
+        const labels = ["NFPA", "Augmented", "Fulfilled"];
 
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: "Existing",
-                    data: existingValues,
-                    backgroundColor: "#4e79a7"
-                },
-                {
-                    label: "Optimized",
-                    data: optimizedValues,
-                    backgroundColor: "#f28e2c"
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: { display: true, text: "Seconds" }
-                }
+        // Existing values (null = NA)
+        const existingValues = [
+            276,   // NFPA Existing
+            629,   // Augmented Existing
+            null   // Fulfilled Existing (NA)
+        ];
+
+        // Optimized values
+        const optimizedValues = [
+            230,   // NFPA Optimized
+            538,   // Augmented Optimized
+            541    // Fulfilled Optimized
+        ];
+
+        // 4) Build chart
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "Existing",
+                        data: existingValues,
+                        borderWidth: 1
+                    },
+                    {
+                        label: "Optimized",
+                        data: optimizedValues,
+                        borderWidth: 1
+                    }
+                ]
             },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function (ctx) {
-                            if (ctx.raw === null) return "NA";
-                            return `${ctx.raw} sec`;
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: "Seconds" }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                if (ctx.raw === null) return "Existing: NA";
+                                return `${ctx.dataset.label}: ${ctx.raw} sec`;
+                            }
                         }
                     }
                 }
             }
-        }
+        });
+
+        console.log('[RT Chart] Response-time chart rendered ✅');
     });
+
 
 
 })(); // closes OUTER file-wrapper IIFE
