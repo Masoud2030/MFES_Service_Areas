@@ -674,4 +674,70 @@
         rebuildLayersControlInDesiredOrder();
     });
 
+    /* ============================================================
+   GROUPED RESPONSE TIME CHART
+   ============================================================ */
+
+    const labels = [
+        "NFPA",
+        "Augmented",
+        "Fulfilled"
+    ];
+
+    // Existing values (use null for NA)
+    const existingValues = [
+        276,   // NFPA Existing
+        629,   // Augmented Existing
+        null   // Fulfilled Existing (NA)
+    ];
+
+    // Optimized values
+    const optimizedValues = [
+        230,   // NFPA Optimized
+        538,   // Augmented Optimized
+        541    // Fulfilled Optimized
+    ];
+
+    const ctx = document.getElementById('rtChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "Existing",
+                    data: existingValues,
+                    backgroundColor: "#4e79a7"
+                },
+                {
+                    label: "Optimized",
+                    data: optimizedValues,
+                    backgroundColor: "#f28e2c"
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: "Seconds" }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            if (ctx.raw === null) return "NA";
+                            return `${ctx.raw} sec`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+
 })(); // closes OUTER file-wrapper IIFE
