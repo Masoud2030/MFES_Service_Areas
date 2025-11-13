@@ -597,10 +597,10 @@
             'Fire Stations',
             'Incidents – Spread',
             'Incidents – Heat Map',
+            'Existing Service Areas',
+            'Optimized NFPA Service Areas',
             'Optimized Augmented Service Areas',
             'Optimized Fulfilled Service Areas',
-            'Optimized NFPA Service Areas',
-            'Existing Service Areas',
             'Backups – Medium',
             'Backups – High'
         ];
