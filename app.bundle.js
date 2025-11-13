@@ -46,6 +46,7 @@
     }
 
     /* ===================== RT Chart toggle control ====================== */
+    /* ===================== RT Chart toggle control ====================== */
     const rtToggleControl = L.control({ position: 'topleft' });
 
     rtToggleControl.onAdd = function (map) {
@@ -712,7 +713,6 @@
    GROUPED RESPONSE TIME CHART
    ============================================================ */
 
-    // ================== RESPONSE TIME CHART (GROUPED) ==================
     window.addEventListener('load', function () {
         // 1) Check that Chart.js is loaded
         if (typeof Chart === 'undefined') {
@@ -788,7 +788,5 @@
 
         console.log('[RT Chart] Response-time chart rendered ✅');
     });
-
-  
 
 })(); // closes OUTER file-wrapper IIFE
